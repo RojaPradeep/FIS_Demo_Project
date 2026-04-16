@@ -27,7 +27,7 @@ unique_ptr<TradeStrategy> TradeProcessor::createStrategy(const std::string& type
 // Add trade
 void TradeProcessor::addTrade(const Trade& t)
 {
-    lock_guard<mutex> lock(mtx);
+    scoped_lock lock(mtx);
     trades.push_back(t);
 }
 
@@ -35,11 +35,32 @@ void TradeProcessor::addTrade(const Trade& t)
 void TradeProcessor::validateTrades()
 {
     {
-        lock_guard<mutex> lock(mtx);
+        scoped_lock lock(mtx);
         cout << "Validating trades...\n";
-
+        constexpr int MAX_TRADE_AMOUNT = 1'000'000;
         for (auto& t : trades)
         {
+            // Amount must be positive
+            if(t.amount <= 0)
+            {
+                t.status = Status::REJECTED;
+                continue;
+            }
+            
+            //MAX trade limit
+            if(t.amount > MAX_TRADE_AMOUNT)
+            {
+                t.status = Status::REJECTED;
+                continue;
+            }
+            
+            //Supported trade types only
+            if(t.type != "BUY" && t.type !="buy" && t.type != "SELL" && t.type !="sell" && t.type != "HOLD" && t.type !="hold")
+            {
+                t.status = Status::REJECTED;
+                continue;
+            }
+
             auto Strategy = createStrategy(t.type);
             if( Strategy && Strategy ->validate(t))
             {
@@ -49,17 +70,13 @@ void TradeProcessor::validateTrades()
             {
                 t.status = Status::REJECTED;
             }
-            /*if (t.amount <= 0)
-                t.status = Status::REJECTED;
-            else
-                t.status = Status::VALIDATED;*/
         }
 
         validated = true;
     }
 
     cv.notify_all(); // signal processing stage
-    this_thread::sleep_for(chrono::seconds(1));
+    this_thread::sleep_for(1s);
 }
 
 // Thread 2: Processing
@@ -84,7 +101,7 @@ void TradeProcessor::processTrades()
     lock.unlock();
 
     cv.notify_all(); // signal settlement stage
-    this_thread::sleep_for(chrono::seconds(1));
+    this_thread::sleep_for(1s);
 }
 
 // Thread 3: Settlement
@@ -102,13 +119,13 @@ void TradeProcessor::settleTrades()
     }
 
     lock.unlock();
-    this_thread::sleep_for(chrono::seconds(1));
+    this_thread::sleep_for(1s);
 }
 
 // Display results
 void TradeProcessor::showTrades() const
 {
-    lock_guard<mutex> lock(mtx);
+    scoped_lock lock(mtx);
 
     cout << "\nFinal Trade States:\n";
 
