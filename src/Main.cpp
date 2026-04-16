@@ -1,26 +1,46 @@
 #include "TradeProcessor.h"
+#include "TradeCLI.h"
 
+#include <iostream>
 #include <thread>
+#include <unordered_map>
+#include <memory>
 
 using namespace std;
+
+// Display menu
+void showMenu()
+{
+    std::cout << "\n=== Trade Processing & Settlement Engine ===\n";
+    std::cout << "1. Add Trade\n";
+    std::cout << "2. Start Processing\n";
+    std::cout << "3. Exit\n";
+    std::cout << "Enter your choice: ";
+}
 
 int main()
 {
     TradeProcessor processor;
 
-    processor.addTrade({1, "BUY", 1000});
-    processor.addTrade({2, "SELL", -50});
-    processor.addTrade({3, "BUY", 500});
+    unordered_map<int, unique_ptr<Command>> commands;
 
-    thread t1(&TradeProcessor::validateTrades, &processor);
-    thread t2(&TradeProcessor::processTrades, &processor);
-    thread t3(&TradeProcessor::settleTrades, &processor);
+    commands.emplace(1, make_unique<AddTradeCommand>(processor));
+    commands.emplace(2, make_unique<StartProcessingCommand>(processor));
+    commands.emplace(3, make_unique<ExitCommand>());
 
-    t1.join();
-    t2.join();
-    t3.join();
+    while (true)
+    {
+        showMenu();
 
-    processor.showTrades();
+        int choice{};
+        cin >> choice;
 
-    return 0;
+        auto it = commands.find(choice);
+        if (it != commands.end()) {
+            it->second->execute();
+        } else {
+            cout << "Invalid choice. Please try again.\n";
+            break;
+        }
+    }
 }
