@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(TradeEngine
     src/Main.cpp
     src/TradeProcessor.cpp
+    src/TradeStrategy.cpp
 )
 
 #Find Header files

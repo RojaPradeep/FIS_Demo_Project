@@ -1,11 +1,28 @@
 #include "TradeProcessor.h"
-
+#include "TradeStrategy.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <mutex>
+#include <memory>
 
 using namespace std;
+unique_ptr<TradeStrategy> TradeProcessor::createStrategy(const std::string& type)
+{
+    if(type == "BUY")
+    {
+        return make_unique<BuyStrategy>();
+    }
+    else if(type == "SELL")
+    {
+        return make_unique<SellStrategy>();
+    }
+    else if(type == "HOLD")
+    {
+        return make_unique<HoldStrategy>();
+    }
+    return nullptr;
+}
 
 // Add trade
 void TradeProcessor::addTrade(const Trade& t)
@@ -23,10 +40,19 @@ void TradeProcessor::validateTrades()
 
         for (auto& t : trades)
         {
-            if (t.amount <= 0)
+            auto Strategy = createStrategy(t.type);
+            if( Strategy && Strategy ->validate(t))
+            {
+                t.status = Status::VALIDATED;
+            }
+            else
+            {
+                t.status = Status::REJECTED;
+            }
+            /*if (t.amount <= 0)
                 t.status = Status::REJECTED;
             else
-                t.status = Status::VALIDATED;
+                t.status = Status::VALIDATED;*/
         }
 
         validated = true;
@@ -46,8 +72,12 @@ void TradeProcessor::processTrades()
 
     for (auto& t : trades)
     {
-        if (t.status == Status::VALIDATED)
-            t.status = Status::PROCESSED;
+        if (t.status == Status::VALIDATED){
+            //t.status = Status::PROCESSED;
+            auto strategy = createStrategy(t.type);
+            if(strategy)
+                strategy->process(t);
+        }
     }
 
     processed = true;

@@ -1,8 +1,11 @@
 #pragma once
 #include "Trade.h"
+#include "TradeStrategy.h"
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <memory>
+#include <string>
 
 using namespace std;
 
@@ -25,5 +28,7 @@ private:
 
     bool validated{false};
     bool processed{false};
+
+    std::unique_ptr<TradeStrategy> createStrategy(const std::string& type);
 };
 
