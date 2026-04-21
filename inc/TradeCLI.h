@@ -42,6 +42,18 @@ public:
     }
 };
 
+//View All Trades
+class ViewAllTradesCommand : public Command {
+    TradeProcessor& processor;
+
+public:
+    explicit ViewAllTradesCommand(TradeProcessor& p) : processor(p) {}
+
+    void execute() override {
+        processor.showTrades();
+    }
+};
+
 //Start Processing 
 class StartProcessingCommand : public Command {
     TradeProcessor& processor;
@@ -62,7 +74,73 @@ public:
         t3.join();
 
         cout << "Processing completed.\n";
-        processor.showTrades();
+        //processor.showTrades();
+    }
+};
+
+//View Trades by Status
+class ViewTradesByStatusCommand : public Command {
+    TradeProcessor& processor;
+
+public:
+    explicit ViewTradesByStatusCommand(TradeProcessor& p) : processor(p) {}
+
+    void execute() override {
+        int s;
+        std::cout << "Select Status:\n"
+                  << "1.NEW 2.VALIDATED 3.PROCESSED 4.SETTLED 5.REJECTED\n";
+        std::cin >> s;
+
+        if (s < 1 || s > 5) {
+            std::cout << "Invalid status.\n";
+            return;
+        }
+
+        processor.showTradesByStatus(static_cast<Status>(s - 1));
+    }
+};
+
+//Delete Trade
+class DeleteTradeCommand : public Command {
+    TradeProcessor& processor;
+
+public:
+    explicit DeleteTradeCommand(TradeProcessor& p) : processor(p) {}
+
+    void execute() override {
+        int id;
+        std::cout << "Enter Trade ID to delete: ";
+        std::cin >> id;
+
+        if (processor.deleteTrade(id))
+            std::cout << "Trade deleted.\n";
+        else
+            std::cout << "Trade not found.\n";
+    }
+};
+
+//Show Metrics
+class ShowMetricsCommand : public Command {
+    TradeProcessor& processor;
+
+public:
+    explicit ShowMetricsCommand(TradeProcessor& p) : processor(p) {}
+
+    void execute() override {
+        processor.showMetrics();
+    }
+};
+
+//Reset System
+class ResetSystemCommand : public Command {
+    TradeProcessor& processor;
+
+public:
+    explicit ResetSystemCommand(TradeProcessor& p) : processor(p) {}
+
+    void execute() override {
+        processor.reset();
+        std::cout << "System reset completed.\n";
     }
 };
 
