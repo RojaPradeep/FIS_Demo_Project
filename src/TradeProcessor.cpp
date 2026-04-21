@@ -5,6 +5,7 @@
 #include <chrono>
 #include <mutex>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 unique_ptr<TradeStrategy> TradeProcessor::createStrategy(const std::string& type)
@@ -147,4 +148,96 @@ void TradeProcessor::showTrades() const
 
         cout << '\n';
     }
+}
+
+//Display Trades by Status
+void TradeProcessor::showTradesByStatus(Status status) const
+{
+    scoped_lock lock(mtx);
+
+    cout << "\nTrades with Status: "
+         << toString(status)
+         << "\n-----------------------------------\n";
+
+    bool found{false};
+
+    for (const auto& trade : trades)
+    {
+        if (trade.status == status)
+        {
+            cout << "Trade ID   : " << trade.id << '\n'
+                 << "Trade Type : " << trade.type << '\n'
+                 << "Amount     : " << trade.amount << '\n'
+                 << "-----------------------------------\n";
+            found = true;
+        }
+    }
+
+    if (!found)
+    {
+        std::cout << "No trades found for the selected status.\n";
+    }
+}
+
+//Delete Trade
+bool TradeProcessor::deleteTrade(int tradeId)
+{
+    scoped_lock lock(mtx);
+
+    const auto it = std::find_if(trades.begin(), trades.end(), [tradeId](const Trade& t) {
+            return t.id == tradeId;
+        });
+
+    if (it != trades.end())
+    {
+        trades.erase(it);
+        return true;
+    }
+
+    return false;
+}
+
+//Show Metrics
+void TradeProcessor::showMetrics() const
+{
+    scoped_lock lock(mtx);
+
+    const size_t totalTrades { trades.size() };
+
+    size_t newCount      { 0 };
+    size_t validated     { 0 };
+    size_t processed     { 0 };
+    size_t settled       { 0 };
+    size_t rejected      { 0 };
+
+    for (const auto& trade : trades)
+    {
+        switch (trade.status)
+        {
+            case Status::NEW:        ++newCount;  break;
+            case Status::VALIDATED:  ++validated; break;
+            case Status::PROCESSED:  ++processed; break;
+            case Status::SETTLED:    ++settled;   break;
+            case Status::REJECTED:   ++rejected;  break;
+        }
+    }
+
+    cout << "\n========== Trade Metrics ==========\n"
+         << "Total Trades       : " << totalTrades << '\n'
+         << "NEW                : " << newCount    << '\n'
+         << "VALIDATED          : " << validated   << '\n'
+         << "PROCESSED          : " << processed   << '\n'
+         << "SETTLED            : " << settled     << '\n'
+         << "REJECTED           : " << rejected    << '\n'
+         << "===================================\n";
+}
+
+//System reset
+void TradeProcessor::reset()
+{
+    std::scoped_lock lock(mtx);
+
+    trades.clear();
+
+    std::cout << "All trades have been cleared. System reset successful.\n";
 }

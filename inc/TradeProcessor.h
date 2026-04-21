@@ -9,6 +9,22 @@
 
 using namespace std;
 
+namespace
+{
+    constexpr const char* toString(Status status) noexcept
+    {
+        switch (status)
+        {
+            case Status::NEW:        return "NEW";
+            case Status::VALIDATED:  return "VALIDATED";
+            case Status::PROCESSED:  return "PROCESSED";
+            case Status::SETTLED:    return "SETTLED";
+            case Status::REJECTED:   return "REJECTED";
+        }
+        return "UNKNOWN";
+    }
+}
+
 class TradeProcessor
 {
 public:
@@ -19,6 +35,10 @@ public:
     void settleTrades();
 
     void showTrades() const;
+    void showTradesByStatus(Status) const;
+    bool deleteTrade(int);
+    void showMetrics() const;
+    void reset();
 
 private:
     std::vector<Trade> trades;
