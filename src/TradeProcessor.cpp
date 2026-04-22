@@ -273,9 +273,145 @@ void TradeProcessor::reset()
     string logMsg{};
     trades.clear();
 
+    validated = false;
+    processed = false;
+
+    validatedQueue.reset();
+    processedQueue.reset();
+
+
     logMsg="All trades have been cleared. System reset successful.\n";
     std::cout << logMsg;
     Logger::getInstance().info(logMsg);
 
 }
 
+void TradeProcessor::updateTradeStatusById(int tradeId,Status status)
+{
+    std::scoped_lock lock(mtx);
+    for(auto& t:trades)
+    {
+        if(t.id == tradeId)
+        {
+            t.status = status;
+            return;
+        }
+    }
+}
+
+void TradeProcessor::producerValidationStage()
+{
+    Logger::getInstance().info("Producer thread started validation stage.\n");
+    std::cout<<"Producer started: validating trades...\n";
+
+    constexpr int MAX_TRADE_AMOUNT = 1000000;
+    std::vector<Trade> snapshot;
+    {
+        std::scoped_lock lock(mtx);
+        snapshot = trades;
+    }
+    for(auto& t:snapshot)
+    {
+        if(t.amount <= 0)
+        {
+            updateTradeStatusById(t.id,Status::REJECTED);
+            Logger::getInstance().warn("Trade rejected due to non-positive amount. Trade ID: " + std::to_string(t.id));
+            continue;
+        }
+        if(t.amount > MAX_TRADE_AMOUNT)
+        {
+            updateTradeStatusById(t.id, Status::REJECTED);
+            Logger::getInstance().warn("Trade rejected due to trade limit exceeded. Trade Id: " + std::to_string(t.id));
+            continue;
+        }
+            
+        if(t.type != "BUY" && t.type !="buy" && t.type != "SELL" && t.type !="sell" && t.type != "HOLD" && t.type !="hold")
+        {
+            updateTradeStatusById(t.id, Status::REJECTED);
+            Logger::getInstance().warn("Trade rejected due to unsupported type. Trade ID: " + std::to_string(t.id));
+            continue;
+        }
+
+        auto Strategy = createStrategy(t.type);
+        if( Strategy && Strategy ->validate(t))
+        {
+            t.status = Status::VALIDATED;
+            updateTradeStatusById(t.id,Status::VALIDATED);
+            Logger::getInstance().info("Trade validated and pushed to validatedQueue. Trade ID: " + std::to_string(t.id));
+            validatedQueue.push(t);
+        }
+        else
+        {
+            updateTradeStatusById(t.id,Status::REJECTED);
+            Logger::getInstance().warn("Trade rejected duiring strategy validation. Trade ID: " + std::to_string(t.id));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    }
+    validatedQueue.close();
+    Logger::getInstance().info("Producer thread finished validation. \n");
+    std::cout<<"Producer finished validation. \n";
+}
+
+void TradeProcessor::ConsumerProcessingStage()
+{
+    Logger::getInstance().info("Consumer-1 thread started: processing stage.\n");
+    std::cout << "Consumer-1 stared: procesing validated trades ...\n";
+    Trade t{};
+    while(validatedQueue.pop(t))
+    {
+        auto strategy = createStrategy(t.type);
+        if(strategy)
+        {
+            strategy->process(t);
+            updateTradeStatusById(t.id,Status::PROCESSED);
+            Logger::getInstance().info("Trade processed and pushed to processedQueue. Trade ID: " + std::to_string(t.id));
+            processedQueue.push(t);
+        }
+        else
+        {
+            updateTradeStatusById(t.id, Status::REJECTED);
+            Logger::getInstance().error("Strategy creation failed during processing. Trade ID: " + std::to_string(t.id));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    }
+    processedQueue.close();
+    Logger::getInstance().info("Consumer-1 finished processing. \n");
+    std::cout<<"Consumer-1 finished processing.\n";
+}
+
+void TradeProcessor::consumerSettlementStage()
+{
+    Logger::getInstance().info("Consumer-2 thread started: settlemet stage.\n");
+    std::cout<<"Consumer-2 started settling processed trades ...\n";
+    Trade t{};
+    while(processedQueue.pop(t))
+    {
+        if(t.status == Status::PROCESSED)
+        {
+            t.status =Status::SETTLED;
+            updateTradeStatusById(t.id,Status::SETTLED);
+            Logger::getInstance().info("Trade settled successfully. Trade ID: " + std::to_string(t.id));
+            std::cout<< "Settled Trade ID: " << t.id <<"\n";
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    }
+    Logger::getInstance().info("Consumer-2 finished settlement.\n");
+    std::cout << " Consumer-2 finished settlement.\n";
+}
+
+void TradeProcessor::startProducerConsumer()
+{
+    Logger::getInstance().info("Starting Producer-Consumer module...\n");
+    std::cout << "Starting Producer-Consumer module... \n";
+    validatedQueue.reset();
+    processedQueue.reset();
+
+    std::thread producer(&TradeProcessor::producerValidationStage,this);
+    std::thread consumer1(&TradeProcessor::ConsumerProcessingStage,this);
+    std::thread consumer2(&TradeProcessor::consumerSettlementStage,this);
+    producer.join();
+    consumer1.join();
+    consumer2.join();
+    Logger::getInstance().info("Producer-Consumer module completed.\n");
+    std::cout << "Producer-Consumer module completed. \n";
+}

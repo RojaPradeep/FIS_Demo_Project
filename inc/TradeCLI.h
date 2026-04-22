@@ -64,14 +64,16 @@ public:
 
     void execute() override {
         cout << "Starting trade processing...\n";
-       Logger::getInstance().info("Starting trade processing...\n");
-        thread t1(&TradeProcessor::validateTrades, &processor);
+        Logger::getInstance().info("Starting trade processing...\n");
+        processor.startProducerConsumer();
+
+        /*thread t1(&TradeProcessor::validateTrades, &processor);
         thread t2(&TradeProcessor::processTrades, &processor);
         thread t3(&TradeProcessor::settleTrades, &processor);
 
         t1.join();
         t2.join();
-        t3.join();
+        t3.join();*/
 
         cout << "Processing completed.\n";
         Logger::getInstance().info("Processing completed.\n");

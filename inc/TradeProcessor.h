@@ -1,6 +1,7 @@
 #pragma once
 #include "Trade.h"
 #include "TradeStrategy.h"
+#include "TradeQueue.h"
 #include <vector>
 #include <mutex>
 #include <condition_variable>
@@ -39,6 +40,7 @@ public:
     bool deleteTrade(int);
     void showMetrics() const;
     void reset();
+    void startProducerConsumer();
    
 private:
     std::vector<Trade> trades;
@@ -50,6 +52,14 @@ private:
     bool processed{false};
    
     std::unique_ptr<TradeStrategy> createStrategy(const std::string& type);
+
+    TradeQueue validatedQueue;
+    TradeQueue processedQueue;
+
+    void producerValidationStage();
+    void ConsumerProcessingStage();
+    void consumerSettlementStage();
+    void updateTradeStatusById(int tradeId, Status status);
     
 };
 
