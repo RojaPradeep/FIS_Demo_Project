@@ -11,6 +11,7 @@ add_executable(TradeEngine
     src/Main.cpp
     src/TradeProcessor.cpp
     src/TradeStrategy.cpp
+    src/Logger.cpp
 )
 
 #Find Header files

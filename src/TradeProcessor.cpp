@@ -1,13 +1,18 @@
 #include "TradeProcessor.h"
 #include "TradeStrategy.h"
+#include "Logger.h"
+
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <mutex>
 #include <memory>
 #include <algorithm>
-
+#include <string>
+#include <sstream>
 using namespace std;
+
+
 unique_ptr<TradeStrategy> TradeProcessor::createStrategy(const std::string& type)
 {
     if(type == "BUY")
@@ -38,6 +43,7 @@ void TradeProcessor::validateTrades()
     {
         scoped_lock lock(mtx);
         cout << "Validating trades...\n";
+        Logger::getInstance().info("Validating trades...\n");
         constexpr int MAX_TRADE_AMOUNT = 1'000'000;
         for (auto& t : trades)
         {
@@ -87,7 +93,7 @@ void TradeProcessor::processTrades()
     cv.wait(lock, [this] { return validated; });
 
     cout << "Processing trades...\n";
-
+    Logger::getInstance().info("Processing trades...\n");
     for (auto& t : trades)
     {
         if (t.status == Status::VALIDATED){
@@ -112,7 +118,7 @@ void TradeProcessor::settleTrades()
     cv.wait(lock, [this] { return processed; });
 
     cout << "Settling trades...\n";
-
+    Logger::getInstance().info("Settling trades...\n");
     for (auto& t : trades)
     {
         if (t.status == Status::PROCESSED)
@@ -126,39 +132,51 @@ void TradeProcessor::settleTrades()
 // Display results
 void TradeProcessor::showTrades() const
 {
-    scoped_lock lock(mtx);
+    std::scoped_lock lock(mtx);
 
-    cout << "\nFinal Trade States:\n";
+    std::cout << "\nFinal Trade States:\n";
+    Logger::getInstance().info("Final Trade States:\n");
+
+    std::string logMsg;
+    logMsg.reserve(trades.size() * 64); // optional: reduce reallocations
 
     for (const auto& t : trades)
     {
-        cout << "Trade "
-                  << t.id << " | "
-                  << t.type << " | "
-                  << t.amount << " | ";
+        std::cout << "Trade " << t.id << " | " << t.type << " | " << t.amount << " | ";
+
+        // build one line
+        std::string line = std::to_string(t.id)+ " | "+ t.type +" | "+ std::to_string(t.amount)+" | ";
 
         switch (t.status)
         {
-            case Status::NEW:       cout << "NEW"; break;
-            case Status::VALIDATED: cout << "VALIDATED"; break;
-            case Status::PROCESSED: cout << "PROCESSED"; break;
-            case Status::SETTLED:   cout << "SETTLED"; break;
-            case Status::REJECTED:  cout << "REJECTED"; break;
+            case Status::NEW:       std::cout << "NEW";       line += "NEW";       break;
+            case Status::VALIDATED: std::cout << "VALIDATED"; line += "VALIDATED"; break;
+            case Status::PROCESSED: std::cout << "PROCESSED"; line += "PROCESSED"; break;
+            case Status::SETTLED:   std::cout << "SETTLED";   line += "SETTLED";   break;
+            case Status::REJECTED:  std::cout << "REJECTED";  line += "REJECTED";  break;
         }
 
-        cout << '\n';
+        std::cout << '\n';
+        line += '\n';
+
+        logMsg += line;               //  accumulate all trades
     }
+
+    Logger::getInstance().info(logMsg); //  logs ALL trades
 }
 
 //Display Trades by Status
 void TradeProcessor::showTradesByStatus(Status status) const
 {
+    string strtype=toString(status);
     scoped_lock lock(mtx);
 
     cout << "\nTrades with Status: "
          << toString(status)
          << "\n-----------------------------------\n";
 
+    string logMsg= "Trades with Status:  " + strtype;
+    Logger::getInstance().info(logMsg);
     bool found{false};
 
     for (const auto& trade : trades)
@@ -170,12 +188,17 @@ void TradeProcessor::showTradesByStatus(Status status) const
                  << "Amount     : " << trade.amount << '\n'
                  << "-----------------------------------\n";
             found = true;
+            
+            logMsg="TradeID : " +to_string(trade.id)+" Trade Type :"+trade.type+" Amount :"+to_string(trade.amount);
+            Logger::getInstance().info(logMsg);
         }
     }
 
     if (!found)
     {
         std::cout << "No trades found for the selected status.\n";
+        logMsg= "No trades found for the selected status.\n";
+        Logger::getInstance().warn(logMsg);
     }
 }
 
@@ -201,7 +224,6 @@ bool TradeProcessor::deleteTrade(int tradeId)
 void TradeProcessor::showMetrics() const
 {
     scoped_lock lock(mtx);
-
     const size_t totalTrades { trades.size() };
 
     size_t newCount      { 0 };
@@ -222,22 +244,38 @@ void TradeProcessor::showMetrics() const
         }
     }
 
-    cout << "\n========== Trade Metrics ==========\n"
-         << "Total Trades       : " << totalTrades << '\n'
-         << "NEW                : " << newCount    << '\n'
-         << "VALIDATED          : " << validated   << '\n'
-         << "PROCESSED          : " << processed   << '\n'
-         << "SETTLED            : " << settled     << '\n'
-         << "REJECTED           : " << rejected    << '\n'
-         << "===================================\n";
+   
+// Build a single formatted log message
+    std::ostringstream oss;
+    oss << "\n========== Trade Metrics ==========\n"
+        << "Total Trades       : " << totalTrades      << '\n'
+        << "NEW                : " << newCount         << '\n'
+        << "VALIDATED          : " << validated   << '\n'
+        << "PROCESSED          : " << processed   << '\n'
+        << "SETTLED            : " << settled     << '\n'
+        << "REJECTED           : " << rejected    << '\n'
+        << "===================================\n";
+
+    const std::string logMsg = oss.str();
+
+    // Print to console (like your existing style)
+    std::cout << logMsg;
+
+    // Log once (cleaner than logging line-by-line)
+    Logger::getInstance().info(logMsg);
+
 }
 
 //System reset
 void TradeProcessor::reset()
 {
     std::scoped_lock lock(mtx);
-
+    string logMsg{};
     trades.clear();
 
-    std::cout << "All trades have been cleared. System reset successful.\n";
+    logMsg="All trades have been cleared. System reset successful.\n";
+    std::cout << logMsg;
+    Logger::getInstance().info(logMsg);
+
 }
+

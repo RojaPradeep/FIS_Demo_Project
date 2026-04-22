@@ -5,7 +5,7 @@
 #include <iostream>
 #include <thread>
 #include <cstdlib>
-
+#include "Logger.h"
 using namespace std;
 
 //Command class
@@ -37,7 +37,7 @@ public:
 
         t.status = Status::NEW;
         processor.addTrade(t);
-
+        Logger::getInstance().info("Trade "+ to_string(t.id)+ " added successfully\n");
         cout << "Trade added successfully.\n";
     }
 };
@@ -64,7 +64,7 @@ public:
 
     void execute() override {
         cout << "Starting trade processing...\n";
-
+       Logger::getInstance().info("Starting trade processing...\n");
         thread t1(&TradeProcessor::validateTrades, &processor);
         thread t2(&TradeProcessor::processTrades, &processor);
         thread t3(&TradeProcessor::settleTrades, &processor);
@@ -74,6 +74,7 @@ public:
         t3.join();
 
         cout << "Processing completed.\n";
+        Logger::getInstance().info("Processing completed.\n");
         //processor.showTrades();
     }
 };
@@ -89,10 +90,18 @@ public:
         int s;
         std::cout << "Select Status:\n"
                   << "1.NEW 2.VALIDATED 3.PROCESSED 4.SETTLED 5.REJECTED\n";
+        
+
+          Logger::getInstance().info(
+        "Select Status:\n"
+        "1.NEW 2.VALIDATED 3.PROCESSED 4.SETTLED 5.REJECTED"
+    );
+
         std::cin >> s;
 
         if (s < 1 || s > 5) {
             std::cout << "Invalid status.\n";
+            Logger::getInstance().error("Invalid status. \n");
             return;
         }
 
@@ -110,12 +119,15 @@ public:
     void execute() override {
         int id;
         std::cout << "Enter Trade ID to delete: ";
+        
         std::cin >> id;
 
         if (processor.deleteTrade(id))
-            std::cout << "Trade deleted.\n";
+           {std::cout << "Trade deleted.\n";
+            Logger::getInstance().info("Deleted Trade :"+to_string(id));}
         else
-            std::cout << "Trade not found.\n";
+            {std::cout << "Trade not found.\n";
+             Logger::getInstance().info("Trade not found.\n");}
     }
 };
 
@@ -141,6 +153,7 @@ public:
     void execute() override {
         processor.reset();
         std::cout << "System reset completed.\n";
+        Logger::getInstance().info("System reset completed.\n");
     }
 };
 
@@ -149,6 +162,7 @@ class ExitCommand : public Command {
 public:
     void execute() override {
         cout << "Exiting system. Goodbye.\n";
+        Logger::getInstance().info("Exiting system. Goodbye.\n\n-------------------------------------------\n");
         exit(0);
     }
 };

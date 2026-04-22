@@ -39,7 +39,7 @@ public:
     bool deleteTrade(int);
     void showMetrics() const;
     void reset();
-
+   
 private:
     std::vector<Trade> trades;
 
@@ -48,7 +48,8 @@ private:
 
     bool validated{false};
     bool processed{false};
-
+   
     std::unique_ptr<TradeStrategy> createStrategy(const std::string& type);
+    
 };
 

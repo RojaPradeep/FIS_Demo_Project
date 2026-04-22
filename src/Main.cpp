@@ -1,5 +1,6 @@
 #include "TradeProcessor.h"
 #include "TradeCLI.h"
+#include "Logger.h"
 
 #include <iostream>
 #include <thread>
@@ -47,6 +48,7 @@ int main()
 {
     TradeProcessor processor;
     CommandMap commands;
+   
     
     commands.emplace(ADD_TRADE,
         std::make_unique<AddTradeCommand>(processor));
@@ -81,6 +83,7 @@ int main()
         else
         {
             std::cout << "Invalid choice. Please try again.\n";
+            Logger::getInstance().warn("Invalid choice. Please try again.\n");
             break;
         }
     }

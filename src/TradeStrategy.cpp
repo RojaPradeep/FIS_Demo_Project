@@ -1,4 +1,5 @@
 #include "TradeStrategy.h"
+#include "Logger.h"
 #include <iostream>
 
 //BUY Strategy
@@ -8,6 +9,7 @@ bool BuyStrategy::validate(const Trade& t){
 
 void BuyStrategy::process(Trade& t){
     std::cout << "Executing BUY trade: " << t.id << std ::endl;
+    Logger::getInstance().info("Executing BUY trade: "+ to_string(t.id)+"\n");
     t.status = Status::PROCESSED;
 }
 
@@ -18,6 +20,7 @@ bool SellStrategy::validate(const Trade& t){
 
 void SellStrategy::process(Trade& t){
     std::cout << "Executing SELL trade: " << t.id << std ::endl;
+     Logger::getInstance().info("Executing SELL trade: "+ to_string(t.id)+"\n");
     t.status = Status::PROCESSED;
 }
 
@@ -29,5 +32,6 @@ bool HoldStrategy::validate(const Trade& t){
 
 void HoldStrategy::process(Trade& t){
     std::cout << "Executing HOLD trade: " << t.id << std ::endl;
+     Logger::getInstance().info("Executing HOLD trade: "+ to_string(t.id)+"\n");
     t.status = Status::PROCESSED;
 }
