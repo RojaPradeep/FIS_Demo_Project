@@ -50,7 +50,10 @@ private:
 
     bool validated{false};
     bool processed{false};
-   
+    
+    bool validatedqueue{false};
+    bool processedqueue{false};
+  
     std::unique_ptr<TradeStrategy> createStrategy(const std::string& type);
 
     TradeQueue validatedQueue;

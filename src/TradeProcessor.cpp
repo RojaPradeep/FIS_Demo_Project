@@ -275,6 +275,9 @@ void TradeProcessor::reset()
 
     validated = false;
     processed = false;
+    
+    validatedqueue =false;
+    processedqueue=false;
 
     validatedQueue.reset();
     processedQueue.reset();
@@ -288,7 +291,7 @@ void TradeProcessor::reset()
 
 void TradeProcessor::updateTradeStatusById(int tradeId,Status status)
 {
-    std::scoped_lock lock(mtx);
+  //  std::scoped_lock lock(mtx);
     for(auto& t:trades)
     {
         if(t.id == tradeId)
@@ -301,13 +304,14 @@ void TradeProcessor::updateTradeStatusById(int tradeId,Status status)
 
 void TradeProcessor::producerValidationStage()
 {
+     std::scoped_lock sl(mtx);
     Logger::getInstance().info("Producer thread started validation stage.\n");
     std::cout<<"Producer started: validating trades...\n";
 
     constexpr int MAX_TRADE_AMOUNT = 1000000;
     std::vector<Trade> snapshot;
     {
-        std::scoped_lock lock(mtx);
+      //  std::scoped_lock lock(mtx);
         snapshot = trades;
     }
     for(auto& t:snapshot)
@@ -350,10 +354,14 @@ void TradeProcessor::producerValidationStage()
     validatedQueue.close();
     Logger::getInstance().info("Producer thread finished validation. \n");
     std::cout<<"Producer finished validation. \n";
+    validatedqueue=true;
+    cv.notify_all();
 }
 
 void TradeProcessor::ConsumerProcessingStage()
 {
+    unique_lock<mutex> uq(mtx);
+    cv.wait(uq,[this]{return validatedqueue;});
     Logger::getInstance().info("Consumer-1 thread started: processing stage.\n");
     std::cout << "Consumer-1 stared: procesing validated trades ...\n";
     Trade t{};
@@ -375,12 +383,17 @@ void TradeProcessor::ConsumerProcessingStage()
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
     processedQueue.close();
+    processedqueue=true;
+    uq.unlock();
+    cv.notify_all();
     Logger::getInstance().info("Consumer-1 finished processing. \n");
     std::cout<<"Consumer-1 finished processing.\n";
 }
 
 void TradeProcessor::consumerSettlementStage()
 {
+    unique_lock<mutex>uniq(mtx);
+    cv.wait(uniq,[this]{return processedqueue;});
     Logger::getInstance().info("Consumer-2 thread started: settlemet stage.\n");
     std::cout<<"Consumer-2 started settling processed trades ...\n";
     Trade t{};
@@ -395,6 +408,8 @@ void TradeProcessor::consumerSettlementStage()
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
+    uniq.unlock();
+ 
     Logger::getInstance().info("Consumer-2 finished settlement.\n");
     std::cout << " Consumer-2 finished settlement.\n";
 }
